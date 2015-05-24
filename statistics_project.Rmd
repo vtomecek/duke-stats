@@ -1,0 +1,196 @@
+---
+title: "Do widowed people have less confidence in science?"
+output:
+  html_document:
+    fig_caption: yes
+    theme: cerulean
+  pdf_document: default
+date: "April 18, 2015"
+---
+
+<!-- For more info on RMarkdown see http://rmarkdown.rstudio.com/ -->
+
+<!-- Enter the code required to load your data in the space below. The data will be loaded but the line of code won't show up in your write up (echo=FALSE) in order to save space-->
+```{r echo=FALSE}
+```
+
+<!-- In the remainder of the document, add R code chunks as needed -->
+
+### Introduction:
+
+Loss of the beloved one produces severely negative experience for everybody.
+It can change one's priorities, view of the world and opinions.
+E.g. one could lose her/his confidence in science if the science failed to save his/her loved one.
+
+In this paper, we will analyze General Social Survey (GSS) data, particullary
+`marital status` and `confidence in scientific community` variables in order to find out
+whether widowed people have less confidence in science.
+
+First, we will explore the dataset, plot some graphs and we'll find the difference between various
+`marital status` groups. Then we'll use the statistical methods to measure whether this difference
+is significant or not. It will turn out that this difference is significant, however we'll
+fail to find the cause because of the type of the study.
+
+### Data:
+
+Our data comes from `General Social Survey (GSS)`[1], a sociological survey used to collect data 
+on demographic characteristics and attitudes of residents of the United States.
+
+Data were collected by questionnaires within years 1972 - 2012 (filtered data are from 1973 - 2012).
+The whole dataset contains 57,061 cases and 114 variables, one case (Unit of observation) describes one interviewee
+and each variable describes either his/her demographics data or her/his opinions on various topics.
+
+We are interesting in two variables:
+
+1. MARITAL (MARITAL STATUS) - categorical variable
+2. CONSCI (CONFIDENCE IN SCIENTIFIC COMMUNITY) - ordinal variable
+
+If we omit NA values, we'll get 30,764 cases and 2 variables.
+
+Since data comes from survey it's clear an observational study.
+Full probability sample was used for most of the surveys, one-half block quota was used in the early years,
+see Appendix A in ICPSR Codebook for further details.
+
+Our population of interest is the whole US population, however the data were collected only from
+English and Spanish speaking persons 18 years of age or older, living in the United States and thus
+we can generalize our findings only to that population.
+Moreover since it is an survey, it may be source of the non-response bias.
+
+Since it's an observational study we can't establish any causal links.
+
+One can load the data using this commands (result is in appendix):
+```{r echo=TRUE, message=FALSE}
+library(dplyr)
+
+load(url("http://bit.ly/dasi_gss_data"))
+
+mygss = dplyr::select(gss, marital, consci) %>% na.omit()
+```
+
+
+### Exploratory data analysis:
+
+```{r echo=TRUE, fig.cap="Confidence to science by marital status"}
+with(mygss, 
+     plot(marital, consci, xlab="Marital status", ylab="Confidence in scientific community")
+)
+```
+
+As we can see `Widowed` and `Separated` people have clearly lower confidence in science.
+
+We can express this difference also in numbers:
+
+```{r echo=TRUE, fig.cap="Table with numbers"}
+t = with(mygss, 
+     table(marital, consci)
+)
+t
+```
+
+```{r echo=TRUE, fig.cap="Table with percentages"}
+round( prop.table(t, 1), 2)
+```
+
+`Separated` people have lowest confidence in science followed by `Widowed` people.
+`Never Married` have highest confidence. It looks like there's some relation with age.
+(I did some research beyond scope of this paper and `age` doesn't explain all of the variance.)
+
+
+### Inference:
+
+We formulate the null hypothesis and alternative hypothesis:
+
+$H_0$: Marital status and Confidence in science are `independent`. Confidence in science do not vary by Marital status.
+
+$H_A$: Marital status and Confidence in science are `dependent`. Confidence in science do vary by Marital status.
+
+Since we have two categorical variables, we would like to do the Chi-square test of independence test,
+but we must check the conditions first:
+
+Since we made random sampling we satisfy the indepencence condition.
+Our sample (30,764 cases) is clearly less than 10% of the US population (~300 mil.)
+and each case contributes only to one cell in the table (interviewee can have only one marital status
+and only one opinion on science).
+
+```{r echo=TRUE}
+prop.table(table(mygss$consci))
+table(mygss$marital)
+```
+
+If $H_0$ is true then each Marital status has 7.3% of people who have `Hardly Any` confidence in science. In `Separated` people (least populated group - 1238 cases) it coresponds to 90 expected cases which is more than required 5.
+
+So now that we satisfied the conditions for chi-square test of independence, let me explain in brief how it works:
+
+We have 2 categorical variables which have `R` and `C` levels respectivelly. Then we have `R*C` scenarios
+which coresponds to all possible combination of the values.
+For each scenario we calculate expected counts `E`. We assume the independence in $H_0$ and in independent variables
+$p(A and B) = p(A)*p(B)$, so we simply multiply two proportions. Then we compare it with observed values `O`.
+If they were really independent this should by approximatelly 0. We square the difference because we want positive number plus we want to penalize bigger differences. Then we divide it by `E` because we want it to be relative squared difference. Finally we sum all the relative squared differences together and we'll get chi-squared value.
+For sure chi-squared summed from larger number of cells will be larger so we must take into account degrees of freedom which is `(R-1)*(C-1)`. From these two values (chi-squared and df) we'll get the p-value (using corresponding tables or R), which tells us if we should reject $H_0$ or not.
+
+```{r echo=TRUE, message=FALSE}
+library(MASS)
+chisq.test(t)
+```
+
+Our p-value is really small which means that we should reject $H_0$ in favour of $H_A$.
+It means that Marital status and Confidence in science are dependent.
+
+We can now compare `Married` vs `Widowed` in the very same way.
+
+$H_0$: Married people and Widowed people have same confidence in science. Marital status and Confidence in science are `independent` within these two groups.
+
+$H_A$: Marital status and Confidence in science are `dependent` within these two groups.
+
+Again we can check that all conditions are met, minimum expected value is 0.07*3167 = 224 which is greater than 5.
+
+```{r echo=TRUE}
+sub = subset(mygss, marital=='Married' | marital=='Widowed')
+sub$marital = factor(sub$marital)
+
+prop.table(table(sub$consci))
+table(sub$marital)
+```
+
+```{r echo=TRUE}
+t2 = table(sub)
+chisq.test(t2)
+```
+
+P-value is again very small, which means that we should reject $H_0$, so we can claim that `Widowed` people
+have lower Confidence in science compared to `Married` people.
+
+Here we should also mention that no other methods than chi-square testing are applicable, so we can't
+calculate the confidence interval and compare the result to the results from hypothesis test.
+
+
+### Conclusion:
+
+Using chi-square test we showed that Confidence to scientific community depends on the Marital status, i.e. 
+some groups of people have lower and some higher confidence in scientific community.
+Particularly we showed that Widowed people have lower confidence in science than Married people.
+
+We learned that widowed people have less confidence in science, but we don't know why.
+This type of question does not allow us to find any causal links, since experimental study
+would violate all ethical standards and observational study is not suitable for this.
+
+In future research we can try to find some confounding variables (e.g. age),
+however as I already mention we will never be able to establish any causal links.
+
+### References
+[1] Smith, Tom W., Michael Hout, and Peter V. Marsden. General Social Survey, 1972-2012 [Cumulative File]. ICPSR34802-v1. Storrs, CT: Roper Center for Public Opinion Research, University of Connecticut /Ann Arbor, MI: Inter-university Consortium for Political and Social Research [distributors], 2013-09-11. doi:10.3886/ICPSR34802.v1
+
+data-link:
+http://bit.ly/dasi_gss_data
+
+codebook-link:
+https://d396qusza40orc.cloudfront.net/statistics%2Fproject%2Fgss1.html
+
+original dataset:
+http://www.icpsr.umich.edu/icpsrweb/ICPSR/studies/34802/version/1
+
+### Appendix
+```{r echo=FALSE, fig.cap="My data"}
+mygss[1:50,]
+```
+
